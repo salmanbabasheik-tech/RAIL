@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hiring Agent — Resume Scorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f13; color: #e8e8f0; min-height: 100vh; padding: 40px 20px; }
+    .container { max-width: 760px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 48px; }
+    header h1 { font-size: 2rem; font-weight: 700; }
+    header h1 span { color: #7c6ef7; }
+    header p { margin-top: 8px; color: #888; font-size: 0.95rem; }
+    .drop-zone { border: 2px dashed #2e2e3e; border-radius: 16px; padding: 64px 32px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; background: #15151e; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: #7c6ef7; background: #1a1a28; }
+    .drop-zone svg { opacity: 0.4; margin-bottom: 16px; }
+    .drop-zone h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+    .drop-zone p { color: #666; font-size: 0.85rem; }
+    #file-input { display: none; }
+    .file-chosen { margin-top: 16px; font-size: 0.85rem; color: #7c6ef7; font-weight: 500; }
+    .btn { display: inline-block; margin-top: 20px; padding: 12px 28px; background: #7c6ef7; color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #6a5ce0; }
+    .btn:disabled { background: #3a3a5a; color: #666; cursor: not-allowed; }
+    #loading { display: none; text-align: center; padding: 48px 0; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #2e2e3e; border-top-color: #7c6ef7; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #888; font-size: 0.9rem; }
+    #loading .step { color: #7c6ef7; font-size: 0.8rem; margin-top: 8px; }
+    .error-box { background: #2a1515; border: 1px solid #5a2020; border-radius: 10px; padding: 16px 20px; color: #f87171; font-size: 0.9rem; margin-top: 20px; display: none; }
+    #results-section { display: none; }
+    .card { background: #15151e; border: 1px solid #2e2e3e; border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+    .total-score { text-align: center; padding: 36px; background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid #2e2e3e; border-radius: 16px; margin-bottom: 20px; }
+    .total-score .score-big { font-size: 4rem; font-weight: 800; color: #7c6ef7; line-height: 1; margin: 12px 0 4px; }
+    .total-score .score-sub { color: #666; font-size: 0.85rem; }
+    .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 18px; }
+    .score-row { margin-bottom: 20px; }
+    .score-row-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .score-label { font-weight: 600; font-size: 0.95rem; }
+    .score-num { font-size: 0.9rem; color: #aaa; }
+    .score-num strong { color: #e8e8f0; }
+    .bar-bg { height: 8px; background: #2e2e3e; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+    .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #7c6ef7, #a78bfa); width: 0%; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+    .evidence { font-size: 0.8rem; color: #666; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: #1e1e2e; border: 1px solid #2e2e3e; border-radius: 6px; padding: 5px 10px; font-size: 0.8rem; }
+    .tag.green { border-color: #1a4a2e; background: #0d2e1a; color: #4ade80; }
+    .tag.yellow { border-color: #4a3a1a; background: #2e240d; color: #fbbf24; }
+    .summary-text { font-size: 0.9rem; line-height: 1.6; color: #aaa; }
+    .adj-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid #2e2e3e; }
+    .adj-row:last-child { border-bottom: none; }
+    .pos { color: #4ade80; font-weight: 600; }
+    .neg { color: #f87171; font-weight: 600; }
+    .reset-btn { display: block; width: 100%; margin-top: 8px; padding: 14px; background: transparent; border: 1px solid #2e2e3e; border-radius: 10px; color: #888; font-size: 0.9rem; cursor: pointer; }
+    .reset-btn:hover { border-color: #7c6ef7; color: #7c6ef7; }
+    .warning { background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 10px; padding: 12px 16px; color: #aaa; font-size: 0.85rem; margin-top: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Hiring <span>Agent</span></h1>
+      <p>Powered by HackerRank ATS + Claude Opus 4.6 on AWS Bedrock</p>
+    </header>
+
+    <div id="upload-section">
+      <div class="drop-zone" id="drop-zone">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="12" y2="12"/>
+          <line x1="15" y1="15" x2="12" y2="12"/>
+        </svg>
+        <h2>Drop a resume PDF here</h2>
+        <p>or click to choose a file</p>
+        <div class="file-chosen" id="file-name"></div>
+        <input type="file" id="file-input" accept=".pdf" />
+      </div>
+      <div class="warning">⏱ Full ATS analysis takes 2-4 minutes — extracts all sections + GitHub data</div>
+      <div style="text-align:center"><button class="btn" id="score-btn" disabled>Score Resume</button></div>
+      <div class="error-box" id="error-box"></div>
+    </div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Running full HackerRank ATS pipeline…</p>
+      <div class="step" id="loading-step">This takes 2-4 minutes. Please wait...</div>
+    </div>
+
+    <div id="results-section">
+      <div class="total-score">
+        <div class="score-big" id="res-total">—</div>
+        <div class="score-sub">out of 120 points</div>
+      </div>
+      <div class="card">
+        <div class="section-title">Category Scores</div>
+        <div id="score-bars"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Adjustments</div>
+        <div id="adjustments"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Key Strengths</div>
+        <div class="tags" id="strengths"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Areas for Improvement</div>
+        <div class="tags" id="improvements"></div>
+      </div>
+      <button class="reset-btn" id="reset-btn">← Score another resume</button>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileNameEl = document.getElementById('file-name');
+    const scoreBtn = document.getElementById('score-btn');
+    const errorBox = document.getElementById('error-box');
+    let selectedFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type === 'application/pdf') setFile(f);
+      else showError('Please drop a PDF file.');
+    });
+
+    function setFile(f) {
+      selectedFile = f; fileNameEl.textContent = f.name; scoreBtn.disabled = false; hideError();
+    }
+
+    scoreBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      hideError(); show('loading');
+
+      const formData = new FormData();
+      formData.append('resume', selectedFile);
+
+      try {
+        const res = await fetch('/score', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Scoring failed');
+        showResults(data);
+      } catch (err) {
+        show('upload'); showError(err.message);
+      }
+    });
+
+    function showResults(data) {
+      show('results');
+      document.getElementById('res-total').textContent = data.total_score ?? '—';
+
+      const labels = { open_source: 'Open Source', self_projects: 'Self Projects', production: 'Production Experience', technical_skills: 'Technical Skills' };
+      const barsEl = document.getElementById('score-bars');
+      barsEl.innerHTML = '';
+      const scores = data.scores || {};
+      for (const [key, label] of Object.entries(labels)) {
+        const s = scores[key] || {};
+        const pct = s.max ? (s.score / s.max) * 100 : 0;
+        barsEl.innerHTML += `<div class="score-row">
+          <div class="score-row-header"><span class="score-label">${label}</span><span class="score-num"><strong>${s.score ?? 0}</strong> / ${s.max ?? 0}</span></div>
+          <div class="bar-bg"><div class="bar-fill" data-pct="${pct}"></div></div>
+          <div class="evidence">${s.evidence || ''}</div>
+        </div>`;
+      }
+      setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(el => { el.style.width = el.dataset.pct + '%'; }); }, 100);
+
+      const bonus = data.bonus_points || {};
+      const deduct = data.deductions || {};
+      document.getElementById('adjustments').innerHTML = `
+        <div class="adj-row"><span>Bonus points</span><span class="pos">+${bonus.total ?? 0}</span></div>
+        <div class="adj-row"><span>${bonus.breakdown || 'None'}</span></div>
+        <div class="adj-row"><span>Deductions</span><span class="neg">-${deduct.total ?? 0}</span></div>
+        <div class="adj-row"><span>${deduct.reasons || 'None'}</span></div>`;
+
+      document.getElementById('strengths').innerHTML = (data.key_strengths || []).map(s => `<span class="tag green">${s}</span>`).join('');
+      document.getElementById('improvements').innerHTML = (data.areas_for_improvement || []).map(s => `<span class="tag yellow">${s}</span>`).join('');
+    }
+
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      selectedFile = null; fileInput.value = ''; fileNameEl.textContent = ''; scoreBtn.disabled = true; hideError(); show('upload');
+    });
+
+    function show(s) {
+      document.getElementById('upload-section').style.display = s === 'upload' ? 'block' : 'none';
+      document.getElementById('loading').style.display = s === 'loading' ? 'block' : 'none';
+      document.getElementById('results-section').style.display = s === 'results' ? 'block' : 'none';
+    }
+    function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+    function hideError() { errorBox.style.display = 'none'; }
+  </script>
+</body>
+</html>
